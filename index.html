@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面積大挑戰 - 雙人對戰與單人闖關版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            overflow-x: hidden;
+            touch-action: manipulation;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        
+        .math-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.1;
+            background-image: 
+                radial-gradient(#333 2px, transparent 2px),
+                radial-gradient(#333 2px, transparent 2px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        .btn-bubbly {
+            transition: all 0.1s;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        .btn-bubbly:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        }
+
+        .keypad-btn {
+            transition: all 0.08s;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.15); /* 縮小陰影 */
+            font-weight: 900;
+            user-select: none;
+        }
+        .keypad-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 0px 0 rgba(0,0,0,0.15);
+        }
+
+        .card-container {
+            position: relative;
+            z-index: 10;
+            width: 98%;
+            max-width: 1300px;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 2rem;
+            padding: 1rem;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            text-align: center;
+            margin: 10px;
+        }
+
+        /* 加大畫布，縮小鍵盤 */
+        .game-canvas {
+            background-color: white;
+            border-radius: 1rem;
+            border: 3px dashed #93c5fd;
+            width: 100%;
+            height: 240px; /* 從160px增加到240px */
+            margin: 0 auto;
+            display: block;
+        }
+
+        .podium {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            height: 140px;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .bar { border-radius: 12px 12px 0 0; color: white; font-weight: bold; padding-top: 8px; }
+        .bar-winner { height: 110px; background: #f59e0b; width: 110px; }
+        .bar-loser { height: 70px; background: #9ca3af; width: 100px; }
+
+        .combo-badge {
+            animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="math-bg"></div>
+
+    <div class="card-container">
+        
+        <!-- 首頁 -->
+        <div id="view-home" class="block">
+            <h1 class="text-3xl md:text-5xl font-black text-blue-600 mb-2">
+                <i class="fa-solid fa-shapes text-purple-500"></i> 面積大挑戰 3.0
+            </h1>
+            <p class="text-gray-600 mb-6 font-bold text-base md:text-lg">五年級數學：尋找隱藏的底與高！計算面積</p>
+            
+            <div class="flex justify-center gap-4 mb-6">
+                <button id="mode-vs-btn" onclick="setGameMode('vs')" class="btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-blue-500 text-white shadow">
+                    <i class="fa-solid fa-users"></i> 雙人對戰模式
+                </button>
+                <button id="mode-solo-btn" onclick="setGameMode('solo')" class="btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-gray-200 text-gray-700 hover:bg-blue-200">
+                    <i class="fa-solid fa-user"></i> 單人闖關挑戰
+                </button>
+            </div>
+
+            <div class="max-w-md mx-auto bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 mb-6">
+                <label class="block text-gray-700 text-lg font-bold mb-3">選擇挑戰時間 (秒)</label>
+                <div class="flex justify-center gap-3">
+                    <button class="time-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-xl text-lg hover:bg-blue-200" onclick="selectTime(30, this)">30</button>
+                    <button class="time-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-xl text-lg hover:bg-blue-200" onclick="selectTime(40, this)">40</button>
+                    <button class="time-btn bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-xl text-lg hover:bg-blue-200" onclick="selectTime(50, this)">50</button>
+                    <button class="time-btn bg-blue-500 text-white font-bold py-2 px-4 rounded-xl text-lg" onclick="selectTime(60, this)" id="default-time">60</button>
+                </div>
+            </div>
+
+            <div id="p1-only-inputs" class="max-w-md mx-auto mb-6 hidden">
+                <div class="bg-blue-100 p-3 rounded-xl border-2 border-blue-300">
+                    <p class="font-bold text-blue-800 text-sm">挑戰者姓名</p>
+                    <input type="text" id="p1-solo-name-input" value="數學小達人" class="w-full text-center mt-1 p-2 rounded-lg border font-bold text-gray-700">
+                </div>
+            </div>
+
+            <div id="vs-inputs" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto mb-6">
+                <div class="bg-blue-100 p-3 rounded-xl border-2 border-blue-300">
+                    <p class="font-bold text-blue-800 text-sm">玩家 1 (藍隊)</p>
+                    <input type="text" id="p1-name-input" value="玩家 1" class="w-full text-center mt-1 p-2 rounded-lg border font-bold text-gray-700">
+                </div>
+                <div class="bg-red-100 p-3 rounded-xl border-2 border-red-300">
+                    <p class="font-bold text-red-800 text-sm">玩家 2 (紅隊)</p>
+                    <input type="text" id="p2-name-input" value="玩家 2" class="w-full text-center mt-1 p-2 rounded-lg border font-bold text-gray-700">
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="btn-bubbly bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-2xl py-4 px-12 rounded-2xl shadow-lg hover:from-blue-600 hover:to-indigo-700">
+                <i class="fa-solid fa-play"></i> 開始遊戲！
+            </button>
+        </div>
+
+        <!-- 遊戲畫面 -->
+        <div id="view-game" class="hidden">
+            <div class="flex justify-between items-center mb-2 bg-gray-800 text-white p-2 rounded-2xl shadow-md">
+                <div class="text-left pl-2">
+                    <span class="text-blue-300 font-black text-sm block" id="p1-display-name">玩家 1</span>
+                    <span class="text-2xl font-black text-blue-400" id="p1-score">0 分</span>
+                </div>
+                <div class="text-center bg-gray-700 px-4 py-1 rounded-xl border border-gray-600">
+                    <span id="time-display" class="text-3xl font-black text-yellow-400">60</span>s
+                </div>
+                <div class="text-right pr-2" id="p2-header-box">
+                    <span class="text-red-300 font-black text-sm block" id="p2-display-name">玩家 2</span>
+                    <span class="text-2xl font-black text-red-400" id="p2-score">0 分</span>
+                </div>
+            </div>
+
+            <div id="game-grid-container" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                
+                <!-- 玩家 1 (左) -->
+                <div id="p1-panel" class="bg-blue-50 p-2 rounded-2xl border-4 border-blue-300 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="bg-blue-500 text-white text-xs font-black px-2 py-0.5 rounded-full"><i class="fa-solid fa-user"></i> <span id="p1-tag-name">玩家 1</span></span>
+                            <span id="p1-combo" class="hidden combo-badge bg-yellow-400 text-gray-900 font-black text-xs px-2 py-0.5 rounded-full shadow">0 連擊!</span>
+                        </div>
+
+                        <!-- 加大的畫布 -->
+                        <canvas id="canvas-p1" width="420" height="240" class="game-canvas mb-1"></canvas>
+
+                        <div id="hint-p1" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-1.5 mb-1 rounded text-left font-bold text-xs"></div>
+                    </div>
+
+                    <!-- 縮小的輸入與鍵盤 -->
+                    <div>
+                        <div class="flex items-center justify-center gap-2 mb-1.5">
+                            <span class="text-sm font-bold text-gray-700">面積 =</span>
+                            <input type="text" id="input-p1" readonly class="w-1/3 text-center text-xl py-0.5 rounded border-2 border-blue-400 bg-white font-black text-blue-700 outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-1 max-w-[220px] mx-auto p-1.5 bg-blue-100 rounded-xl border border-blue-200">
+                            <button onclick="pressKey(1, '1')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">1</button>
+                            <button onclick="pressKey(1, '2')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">2</button>
+                            <button onclick="pressKey(1, '3')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">3</button>
+                            <button onclick="pressKey(1, '4')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">4</button>
+                            <button onclick="pressKey(1, '5')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">5</button>
+                            <button onclick="pressKey(1, '6')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">6</button>
+                            <button onclick="pressKey(1, '7')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">7</button>
+                            <button onclick="pressKey(1, '8')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">8</button>
+                            <button onclick="pressKey(1, '9')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">9</button>
+                            <button onclick="pressKey(1, 'del')" class="keypad-btn bg-amber-400 hover:bg-amber-500 text-white text-base py-1 rounded-lg border border-amber-500"><i class="fa-solid fa-delete-left"></i></button>
+                            <button onclick="pressKey(1, '0')" class="keypad-btn bg-white hover:bg-blue-50 text-blue-700 text-lg py-1 rounded-lg border border-blue-300">0</button>
+                            <button onclick="submitAnswer(1)" class="keypad-btn bg-blue-600 hover:bg-blue-700 text-white text-base py-1 rounded-lg border border-blue-700"><i class="fa-solid fa-check"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 玩家 2 (右) -->
+                <div id="p2-panel" class="bg-red-50 p-2 rounded-2xl border-4 border-red-300 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full"><i class="fa-solid fa-user"></i> <span id="p2-tag-name">玩家 2</span></span>
+                            <span id="p2-combo" class="hidden combo-badge bg-yellow-400 text-gray-900 font-black text-xs px-2 py-0.5 rounded-full shadow">0 連擊!</span>
+                        </div>
+
+                        <!-- 加大的畫布 -->
+                        <canvas id="canvas-p2" width="420" height="240" class="game-canvas mb-1"></canvas>
+
+                        <div id="hint-p2" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-1.5 mb-1 rounded text-left font-bold text-xs"></div>
+                    </div>
+
+                    <!-- 縮小的輸入與鍵盤 -->
+                    <div>
+                        <div class="flex items-center justify-center gap-2 mb-1.5">
+                            <span class="text-sm font-bold text-gray-700">面積 =</span>
+                            <input type="text" id="input-p2" readonly class="w-1/3 text-center text-xl py-0.5 rounded border-2 border-red-400 bg-white font-black text-red-700 outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-1 max-w-[220px] mx-auto p-1.5 bg-red-100 rounded-xl border border-red-200">
+                            <button onclick="pressKey(2, '1')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">1</button>
+                            <button onclick="pressKey(2, '2')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">2</button>
+                            <button onclick="pressKey(2, '3')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">3</button>
+                            <button onclick="pressKey(2, '4')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">4</button>
+                            <button onclick="pressKey(2, '5')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">5</button>
+                            <button onclick="pressKey(2, '6')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">6</button>
+                            <button onclick="pressKey(2, '7')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">7</button>
+                            <button onclick="pressKey(2, '8')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">8</button>
+                            <button onclick="pressKey(2, '9')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">9</button>
+                            <button onclick="pressKey(2, 'del')" class="keypad-btn bg-amber-400 hover:bg-amber-500 text-white text-base py-1 rounded-lg border border-amber-500"><i class="fa-solid fa-delete-left"></i></button>
+                            <button onclick="pressKey(2, '0')" class="keypad-btn bg-white hover:bg-red-50 text-red-700 text-lg py-1 rounded-lg border border-red-300">0</button>
+                            <button onclick="submitAnswer(2)" class="keypad-btn bg-red-600 hover:bg-red-700 text-white text-base py-1 rounded-lg border border-red-700"><i class="fa-solid fa-check"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 比賽結果 -->
+        <div id="view-results" class="hidden">
+            <h2 class="text-4xl font-black text-yellow-500 mb-1">
+                <i class="fa-solid fa-trophy"></i> 時間到！
+            </h2>
+            <p id="winner-announcement" class="text-2xl font-black text-gray-800 mb-4">-</p>
+
+            <div id="podium-container" class="podium mb-6 border-b-2 border-gray-200 pb-4">
+                <div class="flex flex-col items-center" id="loser-podium-box">
+                    <div class="text-sm font-bold text-gray-700 truncate w-28 mb-1" id="loser-name">-</div>
+                    <div class="text-xs font-bold text-blue-500 mb-1" id="loser-score">0分</div>
+                    <div class="bar bar-loser flex justify-center items-center"><span class="text-xl">2</span></div>
+                </div>
+                <div class="flex flex-col items-center" id="winner-podium-box">
+                    <i class="fa-solid fa-crown text-yellow-400 text-3xl mb-1 animate-bounce"></i>
+                    <div class="text-base font-black text-gray-800 truncate w-32 mb-1" id="winner-name">-</div>
+                    <div class="text-xs font-bold text-blue-500 mb-1" id="winner-score">0分</div>
+                    <div class="bar bar-winner flex justify-center items-center"><span class="text-3xl">1</span></div>
+                </div>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button onclick="startGame()" class="btn-bubbly bg-green-500 text-white font-bold text-xl py-3 px-8 rounded-xl">
+                    <i class="Afa-solid fa-rotate-right"></i> 再玩一次
+                </button>
+                <button onclick="showView('home')" class="btn-bubbly bg-gray-400 text-white font-bold text-xl py-3 px-8 rounded-xl">
+                    <i class="fa-solid fa-house"></i> 返回主頁
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let gameMode = 'vs';
+        let selectedTime = 60;
+        let gameTimer = null;
+        let p1Score = 0, p2Score = 0;
+        let p1Combo = 0, p2Combo = 0;
+        let p1Question = null, p2Question = null;
+        let p1UsedAnswers = [], p2UsedAnswers = [];
+        let p1Name = "玩家 1", p2Name = "玩家 2";
+        let synth, bgMusicLoop, correctSound, wrongSound;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('keydown', (e) => {
+                if (document.getElementById('view-game').classList.contains('hidden')) return;
+                
+                // 玩家 1 (左邊) - 使用鍵盤上方數字列 (Digit0-9), Q 刪除, W 或 空白鍵 提交
+                if (e.code.startsWith('Digit')) {
+                    let num = e.code.replace('Digit', '');
+                    pressKey(1, num);
+                }
+                if (e.code === 'KeyQ') pressKey(1, 'del');
+                if (e.code === 'KeyW' || e.code === 'Space') submitAnswer(1);
+
+                if (gameMode === 'vs') {
+                    // 玩家 2 (右邊) - 使用數字小鍵盤 (Numpad0-9), Backspace 刪除, Enter 提交
+                    if (e.code.startsWith('Numpad') && e.code.length === 7) {
+                        let num = e.code.replace('Numpad', '');
+                        pressKey(2, num);
+                    }
+                    if (e.code === 'Backspace' || e.code === 'NumpadSubtract') pressKey(2, 'del');
+                    if (e.code === 'Enter' || e.code === 'NumpadEnter') submitAnswer(2);
+                } else {
+                    // 單人模式下，Enter 與 Backspace 也可控制玩家 1
+                    if (e.code === 'Enter' || e.code === 'NumpadEnter') submitAnswer(1);
+                    if (e.code === 'Backspace') pressKey(1, 'del');
+                }
+            });
+        });
+
+        function setGameMode(mode) {
+            gameMode = mode;
+            document.getElementById('mode-vs-btn').className = mode === 'vs' 
+                ? "btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-blue-500 text-white shadow" 
+                : "btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-gray-200 text-gray-700 hover:bg-blue-200";
+            document.getElementById('mode-solo-btn').className = mode === 'solo' 
+                ? "btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-blue-500 text-white shadow" 
+                : "btn-bubbly py-2 px-6 rounded-xl font-black text-lg bg-gray-200 text-gray-700 hover:bg-blue-200";
+            document.getElementById('vs-inputs').classList.toggle('hidden', mode === 'solo');
+            document.getElementById('p1-only-inputs').classList.toggle('hidden', mode === 'vs');
+        }
+
+        function pressKey(playerNum, key) {
+            const inputEl = document.getElementById(`input-p${playerNum}`);
+            if (!inputEl) return;
+            if (key === 'del') {
+                inputEl.value = inputEl.value.slice(0, -1);
+            } else if (key >= '0' && key <= '9') {
+                if (inputEl.value.length < 3) inputEl.value += key;
+            }
+        }
+
+        function showView(viewId) {
+            ['home', 'game', 'results'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        }
+
+        function selectTime(time, btnElement) {
+            selectedTime = time;
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            btnElement.classList.remove('bg-gray-200', 'text-gray-700');
+            btnElement.classList.add('bg-blue-500', 'text-white');
+        }
+
+        function initAudio() {
+            try {
+                if (typeof Tone === 'undefined') return;
+                Tone.start();
+                if (!synth) {
+                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    synth.volume.value = -16;
+                    const notes = ["C4", "E4", "G4", "C5", "G4", "E4"];
+                    let index = 0;
+                    bgMusicLoop = new Tone.Loop((time) => {
+                        synth.triggerAttackRelease(notes[index], "8n", time);
+                        index = (index + 1) % notes.length;
+                    }, "8n");
+                    Tone.Transport.bpm.value = 100;
+                    correctSound = new Tone.Synth().toDestination();
+                    correctSound.volume.value = -8;
+                    wrongSound = new Tone.Synth().toDestination();
+                    wrongSound.volume.value = -6;
+                }
+            } catch (e) { console.warn("Audio skipped"); }
+        }
+
+        function playSound(type) {
+            try {
+                if (typeof Tone === 'undefined') return;
+                if (type === 'correct' && correctSound) {
+                    correctSound.triggerAttackRelease("C5", "8n");
+                    setTimeout(() => correctSound.triggerAttackRelease("E5", "4n"), 100);
+                } else if (type === 'wrong' && wrongSound) {
+                    wrongSound.triggerAttackRelease("G3", "8n");
+                    setTimeout(() => wrongSound.triggerAttackRelease("C3", "4n"), 100);
+                }
+            } catch(e){}
+        }
+
+        function startGame() {
+            p1Name = gameMode === 'vs' ? document.getElementById('p1-name-input').value || "玩家 1" : document.getElementById('p1-solo-name-input').value || "挑戰者";
+            p2Name = gameMode === 'vs' ? document.getElementById('p2-name-input').value || "玩家 2" : "";
+            
+            document.getElementById('p2-header-box').classList.toggle('hidden', gameMode === 'solo');
+            document.getElementById('p2-panel').classList.toggle('hidden', gameMode === 'solo');
+            document.getElementById('game-grid-container').className = gameMode === 'vs' ? "grid grid-cols-1 md:grid-cols-2 gap-2" : "max-w-xl mx-auto w-full";
+
+            document.getElementById('p1-display-name').innerText = p1Name;
+            document.getElementById('p1-tag-name').innerText = p1Name;
+            document.getElementById('p2-display-name').innerText = p2Name;
+            document.getElementById('p2-tag-name').innerText = p2Name;
+
+            p1Score = p2Score = p1Combo = p2Combo = 0;
+            p1UsedAnswers = []; p2UsedAnswers = [];
+            document.getElementById('p1-score').innerText = "0 分";
+            document.getElementById('p2-score').innerText = "0 分";
+            document.getElementById('p1-combo').classList.add('hidden');
+            document.getElementById('p2-combo').classList.add('hidden');
+
+            showView('game');
+            initAudio();
+            try {
+                if (typeof Tone !== 'undefined' && bgMusicLoop) {
+                    Tone.Transport.bpm.value = 100;
+                    Tone.Transport.start();
+                    bgMusicLoop.start(0);
+                }
+            } catch(e){}
+
+            generateQuestion(1);
+            if (gameMode === 'vs') generateQuestion(2);
+
+            let remaining = selectedTime;
+            document.getElementById('time-display').innerText = remaining;
+            document.getElementById('time-display').classList.remove('animate-pulse', 'text-red-500');
+
+            if (gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                remaining--;
+                document.getElementById('time-display').innerText = remaining;
+                if (remaining === 5) {
+                    document.getElementById('time-display').classList.add('text-red-500', 'animate-pulse');
+                    try { if (typeof Tone !== 'undefined') Tone.Transport.bpm.value = 140; } catch(e){}
+                }
+                if (remaining <= 0) {
+                    clearInterval(gameTimer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // 嚴格生成符合條件的題目 (1-9以內數字，面積20以內)
+        function generateQuestion(playerNum) {
+            document.getElementById(`input-p${playerNum}`).value = '';
+            document.getElementById(`hint-p${playerNum}`).classList.add('hidden');
+
+            let usedList = playerNum === 1 ? p1UsedAnswers : p2UsedAnswers;
+            let type, b, h, topB, distractor, area;
+            let attempts = 0;
+            const shapeTypes = ['triangle', 'parallelogram', 'trapezoid', 'rectangle'];
+
+            do {
+                type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
+                
+                if (type === 'triangle') {
+                    // (b * h) / 2 <= 20 => b*h <= 40
+                    b = Math.floor(Math.random() * 9) + 1;
+                    h = Math.floor(Math.random() * 9) + 1;
+                    if ((b * h) % 2 !== 0) {
+                        if (b < 9 && (b+1)*h <= 40) b++; else if (h < 9 && b*(h+1) <= 40) h++; else { b=4; h=5; } // 確保是偶數
+                    }
+                    area = (b * h) / 2;
+                } else if (type === 'parallelogram' || type === 'rectangle') {
+                    // b * h <= 20
+                    b = Math.floor(Math.random() * 9) + 1;
+                    h = Math.floor(Math.random() * (20 / b)) + 1; 
+                    if (h > 9) h = 9;
+                    area = b * h;
+                } else if (type === 'trapezoid') {
+                    // (topB + b) * h / 2 <= 20 => (topB + b) * h <= 40
+                    topB = Math.floor(Math.random() * 5) + 1;
+                    b = topB + Math.floor(Math.random() * 4) + 1; 
+                    h = Math.floor(Math.random() * (40 / (topB + b))) + 1;
+                    if (h > 9) h = 9;
+                    if (((topB + b) * h) % 2 !== 0) {
+                        if (h < 9 && (topB + b)*(h+1)<=40) h++; else if (h>1) h--; else { topB=2; b=3; h=4;} 
+                    }
+                    area = ((topB + b) * h) / 2;
+                }
+                
+                distractor = Math.max(b, h) + Math.floor(Math.random() * 3) + 1;
+                attempts++;
+            } while ((area > 20 || usedList.includes(`${type}-${b}-${h}-${topB || 0}`)) && attempts < 50);
+
+            // 防重覆機制寫入紀錄
+            usedList.push(`${type}-${b}-${h}-${topB || 0}`);
+            if (usedList.length > 15) usedList.shift();
+
+            const qObj = { type, b, h, topB, distractor, area };
+            if (playerNum === 1) p1Question = qObj;
+            else p2Question = qObj;
+
+            drawShape(`canvas-p${playerNum}`, qObj);
+        }
+
+        // 繪製直角符號函數
+        function drawRightAngle(ctx, x, y, dirX, dirY) {
+            const size = 12; // 放大直角符號，讓學生更容易辨識
+            ctx.beginPath();
+            ctx.moveTo(x + dirX * size, y);
+            ctx.lineTo(x + dirX * size, y + dirY * size);
+            ctx.lineTo(x, y + dirY * size);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2; // 線條稍微加粗
+            ctx.stroke();
+        }
+
+        function drawShape(canvasId, q) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const scale = 22; // ★ 放縮比例從 16 大幅提升至 22，讓圖形更大
+            const bPx = q.b * scale;
+            const hPx = q.h * scale;
+            const cx = canvas.width / 2;
+            const cy = (canvas.height / 2) + (hPx / 2); // 完美垂直置中
+
+            ctx.lineWidth = 3; // 邊線加粗更清楚
+            ctx.strokeStyle = '#2563eb';
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
+
+            ctx.beginPath();
+
+            if (q.type === 'triangle') {
+                // 偶爾製造鈍角三角形，高在外面
+                const isObtuse = Math.random() > 0.6;
+                let topOffset = isObtuse ? bPx * 0.8 : 0; 
+
+                let pBL = { x: cx - bPx/2, y: cy };
+                let pBR = { x: cx + bPx/2, y: cy };
+                let pTop = { x: cx + topOffset, y: cy - hPx };
+
+                ctx.moveTo(pBL.x, pBL.y);
+                ctx.lineTo(pBR.x, pBR.y);
+                ctx.lineTo(pTop.x, pTop.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // 畫高 (虛線) + 直角符號
+                ctx.beginPath();
+                ctx.setLineDash([6, 6]);
+                ctx.moveTo(pTop.x, pTop.y);
+                ctx.lineTo(pTop.x, cy);
+                
+                // 如果高在外面，畫出底邊延長線
+                if (isObtuse) {
+                    ctx.moveTo(pBR.x, cy);
+                    ctx.lineTo(pTop.x + (pTop.x > pBR.x ? 10 : -10), cy); // 延長線稍微多畫出一點點
+                }
+                
+                ctx.strokeStyle = '#ef4444';
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                drawRightAngle(ctx, pTop.x, cy, isObtuse ? -1 : 1, -1);
+
+                // 只顯示數字 (將距離從 16 拉開到 22，避免遮擋邊線)
+                drawLabel(ctx, q.b, cx, cy + 22, '#2563eb');
+                drawLabel(ctx, q.h, pTop.x - 22, cy - hPx/2, '#ef4444');
+                // 干擾項(斜邊)
+                drawLabel(ctx, q.distractor, (pTop.x + pBR.x)/2 + 22, (pTop.y + pBR.y)/2, '#6b7280', true);
+
+            } else if (q.type === 'parallelogram') {
+                let slant = hPx * 0.5;
+                let pBL = { x: cx - bPx/2 - slant/2, y: cy };
+                let pBR = { x: cx + bPx/2 - slant/2, y: cy };
+                let pTR = { x: cx + bPx/2 + slant/2, y: cy - hPx };
+                let pTL = { x: cx - bPx/2 + slant/2, y: cy - hPx };
+
+                ctx.moveTo(pBL.x, pBL.y);
+                ctx.lineTo(pBR.x, pBR.y);
+                ctx.lineTo(pTR.x, pTR.y);
+                ctx.lineTo(pTL.x, pTL.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                ctx.beginPath();
+                ctx.setLineDash([6, 6]);
+                let hX = pTL.x + 18;
+                ctx.moveTo(hX, pTL.y);
+                ctx.lineTo(hX, cy);
+                ctx.strokeStyle = '#ef4444';
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                drawRightAngle(ctx, hX, cy, 1, -1);
+
+                drawLabel(ctx, q.b, cx - slant/2, cy + 22, '#2563eb');
+                drawLabel(ctx, q.h, hX - 22, cy - hPx/2, '#ef4444');
+                drawLabel(ctx, q.distractor, pBL.x + slant/2 - 28, cy - hPx/2, '#6b7280', true);
+
+            } else if (q.type === 'rectangle') {
+                let pBL = { x: cx - bPx/2, y: cy };
+                let pBR = { x: cx + bPx/2, y: cy };
+                let pTR = { x: cx + bPx/2, y: cy - hPx };
+                let pTL = { x: cx - bPx/2, y: cy - hPx };
+
+                ctx.moveTo(pBL.x, pBL.y);
+                ctx.lineTo(pBR.x, pBR.y);
+                ctx.lineTo(pTR.x, pTR.y);
+                ctx.lineTo(pTL.x, pTL.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                
+                drawRightAngle(ctx, pBL.x, pBL.y, 1, -1);
+
+                drawLabel(ctx, q.b, cx, cy + 22, '#2563eb');
+                drawLabel(ctx, q.h, pBL.x - 22, cy - hPx/2, '#ef4444');
+
+            } else if (q.type === 'trapezoid') {
+                let topPx = q.topB * scale;
+                const isRight = Math.random() > 0.5; // 一半機率為直角梯形
+                
+                let pBL = { x: cx - bPx/2, y: cy };
+                let pBR = { x: cx + bPx/2, y: cy };
+                let pTR = { x: isRight ? pBR.x : cx + topPx/2, y: cy - hPx };
+                let pTL = { x: isRight ? pBR.x - topPx : cx - topPx/2, y: cy - hPx };
+
+                ctx.moveTo(pBL.x, pBL.y);
+                ctx.lineTo(pBR.x, pBR.y);
+                ctx.lineTo(pTR.x, pTR.y);
+                ctx.lineTo(pTL.x, pTL.y);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                if (!isRight) {
+                    ctx.beginPath();
+                    ctx.setLineDash([6, 6]);
+                    let hX = pTL.x + 8;
+                    ctx.moveTo(hX, pTL.y);
+                    ctx.lineTo(hX, cy);
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    drawRightAngle(ctx, hX, cy, 1, -1);
+                    drawLabel(ctx, q.h, hX - 22, cy - hPx/2, '#ef4444');
+                } else {
+                    drawRightAngle(ctx, pBR.x, pBR.y, -1, -1);
+                    drawRightAngle(ctx, pTR.x, pTR.y, -1, 1);
+                    drawLabel(ctx, q.h, pBR.x + 22, cy - hPx/2, '#ef4444');
+                }
+
+                drawLabel(ctx, q.topB, cx + (isRight ? (pTL.x+pTR.x)/2 - cx : 0), cy - hPx - 20, '#059669');
+                drawLabel(ctx, q.b, cx, cy + 22, '#2563eb');
+                
+                if(!isRight) drawLabel(ctx, q.distractor, pBL.x - 20, cy - hPx/2, '#6b7280', true);
+            }
+        }
+
+        // 不再帶有提示文字，純數字，並優化防遮擋設計
+        function drawLabel(ctx, text, x, y, color, isSmall = false) {
+            // 字體縮小三分之一 (原本 24px -> 16px, 18px -> 12px)
+            ctx.font = isSmall ? 'bold 12px Nunito' : '900 16px Nunito'; 
+            const metrics = ctx.measureText(text);
+            const w = metrics.width + 10; // 減少左右留白比例
+            const h = 20; // 減少上下高度比例
+
+            ctx.fillStyle = 'rgba(255,255,255,0.75)'; // 輕微半透明，讓線條若隱若現但數字依舊清晰
+            ctx.fillRect(x - w/2, y - h/2 - 2, w, h);
+
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y);
+        }
+
+        function submitAnswer(playerNum) {
+            const q = playerNum === 1 ? p1Question : p2Question;
+            if (!q) return;
+
+            const inputEl = document.getElementById(`input-p${playerNum}`);
+            const hintEl = document.getElementById(`hint-p${playerNum}`);
+            const comboEl = document.getElementById(`p${playerNum}-combo`);
+            const val = parseInt(inputEl.value, 10);
+
+            if (isNaN(val)) return;
+
+            if (val === q.area) {
+                playSound('correct');
+                let combo = playerNum === 1 ? ++p1Combo : ++p2Combo;
+                let bonus = combo > 1 ? 5 : 0;
+                
+                if (playerNum === 1) {
+                    p1Score += (10 + bonus);
+                    document.getElementById('p1-score').innerText = `${p1Score} 分`;
+                } else {
+                    p2Score += (10 + bonus);
+                    document.getElementById('p2-score').innerText = `${p2Score} 分`;
+                }
+                
+                if (combo > 1) {
+                    comboEl.innerText = `${combo} 連擊 (+${10+bonus})!`;
+                    comboEl.classList.remove('hidden');
+                }
+                generateQuestion(playerNum);
+            } else {
+                playSound('wrong');
+                if (playerNum === 1) p1Combo = 0; else p2Combo = 0;
+                comboEl.classList.add('hidden');
+                hintEl.classList.remove('hidden');
+                inputEl.value = '';
+
+                let shapeName, formulaText, calcText;
+                if (q.type === 'triangle') {
+                    shapeName = '三角形'; formulaText = '(底 × 高) ÷ 2'; calcText = `(${q.b} × ${q.h}) ÷ 2 = ?`;
+                } else if (q.type === 'parallelogram') {
+                    shapeName = '平行四邊形'; formulaText = '底 × 高'; calcText = `${q.b} × ${q.h} = ?`;
+                } else if (q.type === 'rectangle') {
+                    shapeName = '長方形'; formulaText = '長 × 寬'; calcText = `${q.b} × ${q.h} = ?`;
+                } else if (q.type === 'trapezoid') {
+                    shapeName = '梯形'; formulaText = '(上底 + 下底) × 高 ÷ 2'; calcText = `(${q.topB} + ${q.b}) × ${q.h} ÷ 2 = ?`;
+                }
+
+                hintEl.innerHTML = `<strong><i class="fa-solid fa-circle-xmark"></i> 答錯囉！必須答對才能過關。</strong><br>
+                    ${shapeName}面積 = ${formulaText} <br>➔ 試試看： ${calcText}`;
+            }
+        }
+
+        function endGame() {
+            try {
+                if (typeof Tone !== 'undefined') {
+                    Tone.Transport.stop();
+                    if (bgMusicLoop) bgMusicLoop.stop();
+                }
+            } catch(e){}
+
+            showView('results');
+            const announceEl = document.getElementById('winner-announcement');
+            const winnerNameEl = document.getElementById('winner-name');
+            const winnerScoreEl = document.getElementById('winner-score');
+            const loserNameEl = document.getElementById('loser-name');
+            const loserScoreEl = document.getElementById('loser-score');
+            const loserBox = document.getElementById('loser-podium-box');
+
+            if (gameMode === 'solo') {
+                loserBox.classList.add('hidden');
+                announceEl.innerHTML = `挑戰完成！最終得分：<span class="text-blue-600">${p1Score} 分</span>`;
+                winnerNameEl.innerText = p1Name;
+                winnerScoreEl.innerText = `${p1Score} 分`;
+            } else {
+                loserBox.classList.remove('hidden');
+                if (p1Score > p2Score) {
+                    announceEl.innerHTML = `恭喜 <span class="text-blue-600">${p1Name}</span> 獲得勝利！`;
+                    winnerNameEl.innerText = p1Name; winnerScoreEl.innerText = `${p1Score} 分`;
+                    loserNameEl.innerText = p2Name; loserScoreEl.innerText = `${p2Score} 分`;
+                } else if (p2Score > p1Score) {
+                    announceEl.innerHTML = `恭喜 <span class="text-red-600">${p2Name}</span> 獲得勝利！`;
+                    winnerNameEl.innerText = p2Name; winnerScoreEl.innerText = `${p2Score} 分`;
+                    loserNameEl.innerText = p1Name; loserScoreEl.innerText = `${p1Score} 分`;
+                } else {
+                    announceEl.innerHTML = `平分秋色！雙方握手言和 🤝`;
+                    winnerNameEl.innerText = p1Name; winnerScoreEl.innerText = `${p1Score} 分`;
+                    loserNameEl.innerText = p2Name; loserScoreEl.innerText = `${p2Score} 分`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
